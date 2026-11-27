@@ -1,0 +1,242 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Species {
+  CATTLE
+  HOGS
+  SHEEP
+  GOATS
+  POULTRY
+}
+
+enum AnimalStatus {
+  PASTURE
+  BOOKED_AT_LOCKER
+  HANGING
+  IN_FREEZER
+  SOLD_RESERVED
+}
+
+enum CheckoutMode {
+  INSPECTED_RETAIL
+  CUSTOM_EXEMPT_SHARE
+}
+
+enum PickupType {
+  FARM
+  BUTCHER
+}
+
+enum OrderStatus {
+  DRAFT
+  RESERVED
+  PAID
+  READY_FOR_PICKUP
+  COMPLETED
+  CANCELLED
+}
+
+enum PackageStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+}
+
+model User {
+  id           String           @id @default(cuid())
+  email        String           @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime         @default(now())
+  memberships  FarmMembership[]
+  sessions     Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Farm {
+  id          String           @id @default(cuid())
+  name        String
+  city        String
+  county      String
+  state       String           @default("IN")
+  createdAt   DateTime         @default(now())
+  memberships FarmMembership[]
+  lots        Lot[]
+  animals     Animal[]
+  butchers    Butcher[]
+  jobs        ProcessorJob[]
+  packages    FreezerPackage[]
+  orders      BuyerOrder[]
+}
+
+model FarmMembership {
+  id        String   @id @default(cuid())
+  userId    String
+  farmId    String
+  role      String   @default("owner")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farm      Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, farmId])
+}
+
+model Lot {
+  id        String   @id @default(cuid())
+  farmId    String
+  name      String
+  species   Species
+  notes     String?
+  farm      Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  animals   Animal[]
+  createdAt DateTime @default(now())
+}
+
+model Animal {
+  id              String               @id @default(cuid())
+  farmId          String
+  lotId           String?
+  tag             String
+  species         Species
+  sex             String
+  status          AnimalStatus         @default(PASTURE)
+  birthOrAcquired DateTime?
+  notes           String?
+  farm            Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  lot             Lot?                 @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  jobLinks        ProcessorJobAnimal[]
+  packages        FreezerPackage[]
+  shareRoster     ShareOwner[]
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@unique([farmId, tag])
+  @@index([farmId, status])
+  @@index([farmId, species])
+}
+
+model Butcher {
+  id        String             @id @default(cuid())
+  farmId    String
+  name      String
+  city      String
+  state     String             @default("IN")
+  phone     String?
+  notes     String?
+  farm      Farm               @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  prices    ButcherPriceItem[]
+  jobs      ProcessorJob[]
+  orders    BuyerOrder[]
+  createdAt DateTime           @default(now())
+}
+
+model ButcherPriceItem {
+  id          String  @id @default(cuid())
+  butcherId   String
+  label       String
+  unit        String  @default("lb")
+  priceCents  Int
+  butcher     Butcher @relation(fields: [butcherId], references: [id], onDelete: Cascade)
+}
+
+model ProcessorJob {
+  id            String               @id @default(cuid())
+  farmId        String
+  butcherId     String?
+  scheduledDate DateTime
+  status        String               @default("booked")
+  notes         String?
+  hangingWeight Float?
+  farm          Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  butcher       Butcher?             @relation(fields: [butcherId], references: [id], onDelete: SetNull)
+  animals       ProcessorJobAnimal[]
+  cutSheet      CutSheet?
+  createdAt     DateTime             @default(now())
+}
+
+model ProcessorJobAnimal {
+  id      String       @id @default(cuid())
+  jobId   String
+  animalId String
+  job     ProcessorJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  animal  Animal       @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, animalId])
+}
+
+model CutSheet {
+  id           String       @id @default(cuid())
+  jobId        String       @unique
+  species      Species
+  templateJson String
+  notes        String?
+  job          ProcessorJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+}
+
+model FreezerPackage {
+  id             String          @id @default(cuid())
+  farmId         String
+  animalId       String?
+  cutName        String
+  weightLbs      Float
+  status         PackageStatus   @default(AVAILABLE)
+  inspectionPath CheckoutMode
+  farm           Farm            @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  animal         Animal?         @relation(fields: [animalId], references: [id], onDelete: SetNull)
+  orderItems     OrderItem[]
+  createdAt      DateTime        @default(now())
+}
+
+model BuyerOrder {
+  id                     String       @id @default(cuid())
+  farmId                 String
+  butcherId              String?
+  buyerName              String
+  buyerEmail             String?
+  buyerPhone             String?
+  checkoutMode           CheckoutMode
+  pickupType             PickupType
+  status                 OrderStatus  @default(DRAFT)
+  stripePaymentIntentId  String?
+  notes                  String?
+  farm                   Farm         @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  butcher                Butcher?     @relation(fields: [butcherId], references: [id], onDelete: SetNull)
+  items                  OrderItem[]
+  shareOwners            ShareOwner[]
+  createdAt              DateTime     @default(now())
+}
+
+model OrderItem {
+  id        String          @id @default(cuid())
+  orderId   String
+  packageId String?
+  label     String
+  quantity  Int             @default(1)
+  order     BuyerOrder      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  package   FreezerPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+}
+
+model ShareOwner {
+  id       String     @id @default(cuid())
+  orderId  String
+  animalId String?
+  name     String
+  sharePct Float      @default(100)
+  order    BuyerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  animal   Animal?    @relation(fields: [animalId], references: [id], onDelete: SetNull)
+}
