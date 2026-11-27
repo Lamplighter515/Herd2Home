@@ -2,9 +2,11 @@
 
 Indiana pilot SaaS scaffold for small farms: **strong herd management** plus a thin processor → freezer → checkout spine.
 
-Multi-tenant farms, multi-species animals/lots, and status lifecycle:
+Multi-tenant farms, multi-species animals/lots, and herd-book lifecycle:
 
-`pasture → booked/at locker → hanging → in freezer → sold/reserved`
+`on farm → reserved share → booked/at locker → hanging → in freezer → sold` (+ dead/culled)
+
+**Herd v1.1** adds class/stage (heifer vs cow), sale flags + path, weight/health/breeding history, meat-withdrawal gating, share roster, animal timeline, tag/EID search, group lot moves, and a light breeding calendar.
 
 Checkout data model distinguishes **inspected retail** vs **custom-exempt live shares**, with farm or butcher pickup. Stripe is stubbed (`stripePaymentIntentId` only).
 
@@ -51,7 +53,7 @@ Seed creates **3 Indiana pilot farms** (Hughes Family Farm, Sugar Creek Livestoc
 | Area | Status |
 | --- | --- |
 | Auth + multi-farm tenancy | Implemented |
-| Herd CRUD, lots, search/filter, lifecycle | Implemented |
+| Herd book (edit, class, sale path, weights, health/withdrawal, breeding, timeline, share roster, calendar, group moves) | Implemented (v1.1) |
 | Processor jobs + cut sheets | Thin read UI + seed |
 | Freezer inventory | Thin read UI + seed |
 | Butcher profiles/pricing | Thin read UI + seed |

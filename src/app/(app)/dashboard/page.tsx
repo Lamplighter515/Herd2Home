@@ -67,6 +67,9 @@ export default async function DashboardPage() {
               <Link href="/herd">Manage herd</Link>
             </li>
             <li>
+              <Link href="/herd/calendar">Breeding calendar</Link>
+            </li>
+            <li>
               <Link href="/processor">Processor jobs & cut sheets</Link>
             </li>
             <li>
@@ -84,7 +87,8 @@ export default async function DashboardPage() {
             and shipping are out of scope for this PR.
           </div>
           <p className="muted mt-4 text-sm">
-            Status labels use Pasture → Booked / at locker → Hanging → In freezer → Sold / reserved.
+            Herd v1.1: on farm → reserved share → booked/at locker → hanging → freezer → sold
+            (plus dead/culled). Sale path + withdrawal gates feed storefront rules.
           </p>
         </div>
       </div>

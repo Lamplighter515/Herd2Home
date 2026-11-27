@@ -15,12 +15,104 @@ enum Species {
   POULTRY
 }
 
+/// Operational lifecycle phase (mutually exclusive). Expanded in v1.1.
+/// PASTURE kept as synonym of on-farm for scaffold compatibility.
 enum AnimalStatus {
   PASTURE
+  ON_FARM
+  RESERVED_SHARE
+  BOOKED_LOCKER
   BOOKED_AT_LOCKER
+  AT_LOCKER
   HANGING
   IN_FREEZER
+  SOLD
   SOLD_RESERVED
+  DEAD
+  CULLED_OTHER
+}
+
+enum AnimalSex {
+  MALE
+  FEMALE
+  UNKNOWN
+  CASTRATE
+}
+
+/// Species-aware class/stage. Heifer vs cow is first-class.
+enum AnimalClass {
+  CALF
+  HEIFER
+  COW
+  BULL
+  STEER
+  PIGLET
+  GILT
+  SOW
+  BARROW
+  BOAR
+  LAMB
+  EWE
+  RAM
+  WETHER
+  KID
+  DOE
+  BUCK
+  CHICK
+  HEN
+  ROOSTER
+  OTHER
+}
+
+enum SalePath {
+  NONE
+  INSPECTED_RETAIL
+  CUSTOM_EXEMPT_SHARE
+  LIVE_ANIMAL
+}
+
+enum SharePortion {
+  WHOLE
+  HALF
+  QUARTER
+}
+
+enum WeightEventType {
+  BIRTH
+  WEAN
+  PERIODIC
+  SALE
+  HANGING
+  OTHER
+}
+
+enum WeightSource {
+  SCALE
+  ESTIMATE
+  PLANT
+}
+
+enum HealthEventType {
+  VACCINE
+  TREATMENT
+  PROCEDURE
+  DIAGNOSIS
+  VET_VISIT
+  OBSERVATION
+}
+
+enum BreedingMethod {
+  NATURAL
+  AI
+}
+
+enum PregnancyStatus {
+  OPEN
+  BRED
+  CONFIRMED
+  OPEN_AFTER_CHECK
+  CALVED
+  ABORTED
 }
 
 enum CheckoutMode {
@@ -68,19 +160,20 @@ model Session {
 }
 
 model Farm {
-  id          String           @id @default(cuid())
-  name        String
-  city        String
-  county      String
-  state       String           @default("IN")
-  createdAt   DateTime         @default(now())
-  memberships FarmMembership[]
-  lots        Lot[]
-  animals     Animal[]
-  butchers    Butcher[]
-  jobs        ProcessorJob[]
-  packages    FreezerPackage[]
-  orders      BuyerOrder[]
+  id               String            @id @default(cuid())
+  name             String
+  city             String
+  county           String
+  state            String            @default("IN")
+  createdAt        DateTime          @default(now())
+  memberships      FarmMembership[]
+  lots             Lot[]
+  animals          Animal[]
+  butchers         Butcher[]
+  jobs             ProcessorJob[]
+  packages         FreezerPackage[]
+  orders           BuyerOrder[]
+  medicineProducts MedicineProduct[]
 }
 
 model FarmMembership {
@@ -106,27 +199,172 @@ model Lot {
   createdAt DateTime @default(now())
 }
 
+model MedicineProduct {
+  id                      String        @id @default(cuid())
+  farmId                  String
+  name                    String
+  defaultMeatWithdrawalDays Int?
+  notes                   String?
+  farm                    Farm          @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  healthEvents            HealthEvent[]
+  createdAt               DateTime      @default(now())
+}
+
 model Animal {
-  id              String               @id @default(cuid())
-  farmId          String
-  lotId           String?
-  tag             String
-  species         Species
-  sex             String
-  status          AnimalStatus         @default(PASTURE)
-  birthOrAcquired DateTime?
-  notes           String?
-  farm            Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  lot             Lot?                 @relation(fields: [lotId], references: [id], onDelete: SetNull)
-  jobLinks        ProcessorJobAnimal[]
-  packages        FreezerPackage[]
-  shareRoster     ShareOwner[]
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  id               String               @id @default(cuid())
+  farmId           String
+  lotId            String?
+  tag              String
+  name             String?
+  eid              String?
+  species          Species
+  /// Legacy free-text sex retained for scaffold compatibility; prefer sexEnum + animalClass.
+  sex              String
+  sexEnum          AnimalSex            @default(UNKNOWN)
+  animalClass      AnimalClass          @default(OTHER)
+  breed            String?
+  colorMarkings    String?
+  status           AnimalStatus         @default(ON_FARM)
+  birthOrAcquired  DateTime?
+  notes            String?
+  damId            String?
+  sireId           String?
+  sireName         String?
+  availableForSale Boolean              @default(false)
+  salePath         SalePath             @default(NONE)
+  listedAt         DateTime?
+  unlistedAt       DateTime?
+  targetReadyDate  DateTime?
+  publicBlurb      String?
+  sharePortion     SharePortion?
+  shareSlots       Int?
+  mortalityReason  String?
+  mortalityAt      DateTime?
+  farm             Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  lot              Lot?                 @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  dam              Animal?              @relation("DamOffspring", fields: [damId], references: [id], onDelete: SetNull)
+  offspring        Animal[]             @relation("DamOffspring")
+  sire             Animal?              @relation("SireOffspring", fields: [sireId], references: [id], onDelete: SetNull)
+  siredOffspring   Animal[]             @relation("SireOffspring")
+  jobLinks         ProcessorJobAnimal[]
+  packages         FreezerPackage[]
+  shareRoster      ShareOwner[]
+  statusHistory    AnimalStatusHistory[]
+  weightEvents     WeightEvent[]
+  healthEvents     HealthEvent[]
+  breedingAsFemale BreedingEvent[]      @relation("BreedingFemale")
+  breedingAsSire   BreedingEvent[]      @relation("BreedingSire")
+  pregnancies      Pregnancy[]
+  shareSlotsRoster AnimalShareSlot[]
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
 
   @@unique([farmId, tag])
   @@index([farmId, status])
   @@index([farmId, species])
+  @@index([farmId, eid])
+  @@index([farmId, availableForSale])
+}
+
+model AnimalStatusHistory {
+  id         String       @id @default(cuid())
+  animalId   String
+  fromStatus AnimalStatus?
+  toStatus   AnimalStatus
+  changedAt  DateTime     @default(now())
+  notes      String?
+  animal     Animal       @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  @@index([animalId, changedAt])
+}
+
+model WeightEvent {
+  id        String          @id @default(cuid())
+  animalId  String
+  weighedAt DateTime
+  weightLb  Float
+  type      WeightEventType @default(PERIODIC)
+  source    WeightSource    @default(SCALE)
+  notes     String?
+  animal    Animal          @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+
+  @@index([animalId, weighedAt])
+}
+
+model HealthEvent {
+  id                  String          @id @default(cuid())
+  animalId            String
+  eventAt             DateTime
+  type                HealthEventType
+  productName         String?
+  medicineProductId   String?
+  dose                String?
+  route               String?
+  lotBatch            String?
+  administeredBy      String?
+  vetName             String?
+  costCents           Int?
+  meatWithdrawalEndsAt DateTime?
+  notes               String?
+  animal              Animal          @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  medicineProduct     MedicineProduct? @relation(fields: [medicineProductId], references: [id], onDelete: SetNull)
+  createdAt           DateTime        @default(now())
+
+  @@index([animalId, eventAt])
+  @@index([meatWithdrawalEndsAt])
+}
+
+model BreedingEvent {
+  id            String         @id @default(cuid())
+  femaleId      String
+  method        BreedingMethod @default(NATURAL)
+  sireId        String?
+  sireName      String?
+  exposureStart DateTime?
+  exposureEnd   DateTime?
+  aiDate        DateTime?
+  notes         String?
+  female        Animal         @relation("BreedingFemale", fields: [femaleId], references: [id], onDelete: Cascade)
+  sire          Animal?        @relation("BreedingSire", fields: [sireId], references: [id], onDelete: SetNull)
+  pregnancy     Pregnancy?
+  createdAt     DateTime       @default(now())
+
+  @@index([femaleId])
+}
+
+model Pregnancy {
+  id              String          @id @default(cuid())
+  femaleId        String
+  breedingEventId String?         @unique
+  status          PregnancyStatus @default(BRED)
+  breedDate       DateTime?
+  dueDate         DateTime?
+  checkDate       DateTime?
+  checkResult     String?
+  notes           String?
+  female          Animal          @relation(fields: [femaleId], references: [id], onDelete: Cascade)
+  breedingEvent   BreedingEvent?  @relation(fields: [breedingEventId], references: [id], onDelete: SetNull)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([femaleId, dueDate])
+  @@index([dueDate])
+}
+
+/// Custom-exempt share roster attached to a live animal (pre-slaughter owners).
+model AnimalShareSlot {
+  id        String       @id @default(cuid())
+  animalId  String
+  ownerName String
+  portion   SharePortion @default(HALF)
+  phone     String?
+  email     String?
+  notes     String?
+  animal    Animal       @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@index([animalId])
 }
 
 model Butcher {
@@ -169,11 +407,11 @@ model ProcessorJob {
 }
 
 model ProcessorJobAnimal {
-  id      String       @id @default(cuid())
-  jobId   String
+  id       String       @id @default(cuid())
+  jobId    String
   animalId String
-  job     ProcessorJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  animal  Animal       @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  job      ProcessorJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  animal   Animal       @relation(fields: [animalId], references: [id], onDelete: Cascade)
 
   @@unique([jobId, animalId])
 }
@@ -203,22 +441,22 @@ model FreezerPackage {
 }
 
 model BuyerOrder {
-  id                     String       @id @default(cuid())
-  farmId                 String
-  butcherId              String?
-  buyerName              String
-  buyerEmail             String?
-  buyerPhone             String?
-  checkoutMode           CheckoutMode
-  pickupType             PickupType
-  status                 OrderStatus  @default(DRAFT)
-  stripePaymentIntentId  String?
-  notes                  String?
-  farm                   Farm         @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  butcher                Butcher?     @relation(fields: [butcherId], references: [id], onDelete: SetNull)
-  items                  OrderItem[]
-  shareOwners            ShareOwner[]
-  createdAt              DateTime     @default(now())
+  id                    String       @id @default(cuid())
+  farmId                String
+  butcherId             String?
+  buyerName             String
+  buyerEmail            String?
+  buyerPhone            String?
+  checkoutMode          CheckoutMode
+  pickupType            PickupType
+  status                OrderStatus  @default(DRAFT)
+  stripePaymentIntentId String?
+  notes                 String?
+  farm                  Farm         @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  butcher               Butcher?     @relation(fields: [butcherId], references: [id], onDelete: SetNull)
+  items                 OrderItem[]
+  shareOwners           ShareOwner[]
+  createdAt             DateTime     @default(now())
 }
 
 model OrderItem {

@@ -155,6 +155,26 @@ h2,
   color: #4d3a6b;
 }
 
+.badge-reserved {
+  background: #e2efe8;
+  color: #1f4d3a;
+}
+
+.badge-withdrawal {
+  background: #f8dede;
+  color: #7a1f1f;
+}
+
+.badge-sale {
+  background: #e7f0e4;
+  color: #245c2e;
+}
+
+.badge-dead {
+  background: #ececec;
+  color: #4a4a4a;
+}
+
 .table-wrap {
   overflow-x: auto;
 }
