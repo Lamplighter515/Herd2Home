@@ -3,5 +3,6 @@ import { getSessionUser } from "@/lib/auth";
 
 export default async function HomePage() {
   const user = await getSessionUser();
-  redirect(user ? "/dashboard" : "/login");
+  // Public buyers land on the shop; signed-in farmers go to ops.
+  redirect(user ? "/dashboard" : "/shop");
 }

@@ -70,9 +70,12 @@ model Session {
 model Farm {
   id          String           @id @default(cuid())
   name        String
+  slug        String           @unique
   city        String
   county      String
   state       String           @default("IN")
+  tagline     String?
+  about       String?
   createdAt   DateTime         @default(now())
   memberships FarmMembership[]
   lots        Lot[]
@@ -107,22 +110,24 @@ model Lot {
 }
 
 model Animal {
-  id              String               @id @default(cuid())
-  farmId          String
-  lotId           String?
-  tag             String
-  species         Species
-  sex             String
-  status          AnimalStatus         @default(PASTURE)
-  birthOrAcquired DateTime?
-  notes           String?
-  farm            Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  lot             Lot?                 @relation(fields: [lotId], references: [id], onDelete: SetNull)
-  jobLinks        ProcessorJobAnimal[]
-  packages        FreezerPackage[]
-  shareRoster     ShareOwner[]
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  id               String               @id @default(cuid())
+  farmId           String
+  lotId            String?
+  tag              String
+  species          Species
+  sex              String
+  status           AnimalStatus         @default(PASTURE)
+  birthOrAcquired  DateTime?
+  notes            String?
+  listedForShare   Boolean              @default(false)
+  sharePriceCents  Int?
+  farm             Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  lot              Lot?                 @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  jobLinks         ProcessorJobAnimal[]
+  packages         FreezerPackage[]
+  shareRoster      ShareOwner[]
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
 
   @@unique([farmId, tag])
   @@index([farmId, status])
@@ -194,6 +199,7 @@ model FreezerPackage {
   animalId       String?
   cutName        String
   weightLbs      Float
+  priceCents     Int             @default(0)
   status         PackageStatus   @default(AVAILABLE)
   inspectionPath CheckoutMode
   farm           Farm            @relation(fields: [farmId], references: [id], onDelete: Cascade)
