@@ -15,12 +15,16 @@ import {
   HealthEventType,
   BreedingMethod,
   PregnancyStatus,
+  CostCategory,
+  CostAllocationMethod,
 } from "@prisma/client";
 import { hashSync } from "bcryptjs";
 
 const prisma = new PrismaClient();
 
 async function main() {
+  await prisma.costAllocation.deleteMany();
+  await prisma.costEntry.deleteMany();
   await prisma.animalShareSlot.deleteMany();
   await prisma.pregnancy.deleteMany();
   await prisma.breedingEvent.deleteMany();
@@ -122,6 +126,7 @@ async function main() {
       colorMarkings: "Black",
       status: AnimalStatus.ON_FARM,
       birthOrAcquired: new Date("2022-05-01"),
+      purchasePriceCents: 280000,
       notes: "Herd bull",
       statusHistory: { create: { toStatus: AnimalStatus.ON_FARM, notes: "Seeded" } },
     },
@@ -141,6 +146,7 @@ async function main() {
       breed: "Angus cross",
       status: AnimalStatus.ON_FARM,
       birthOrAcquired: new Date("2021-03-20"),
+      purchasePriceCents: 150000,
       notes: "Brood cow — confirmed pregnant",
       statusHistory: { create: { toStatus: AnimalStatus.ON_FARM, notes: "Seeded" } },
     },
@@ -160,6 +166,7 @@ async function main() {
       breed: "Hereford cross",
       status: AnimalStatus.BOOKED_LOCKER,
       birthOrAcquired: new Date("2024-04-02"),
+      purchasePriceCents: 120000,
       notes: "Booked at Boone County Locker — inspected path",
       availableForSale: true,
       salePath: SalePath.INSPECTED_RETAIL,
@@ -195,6 +202,7 @@ async function main() {
       colorMarkings: "Black with white face",
       status: AnimalStatus.RESERVED_SHARE,
       birthOrAcquired: new Date("2024-03-12"),
+      purchasePriceCents: 95000,
       notes: "Custom-exempt share animal — rostered",
       availableForSale: true,
       salePath: SalePath.CUSTOM_EXEMPT_SHARE,
@@ -228,6 +236,7 @@ async function main() {
       animalClass: AnimalClass.STEER,
       status: AnimalStatus.ON_FARM,
       birthOrAcquired: new Date("2024-06-01"),
+      purchasePriceCents: 87500,
       notes: "In meat withdrawal — sale/process blocked",
       availableForSale: false,
       salePath: SalePath.NONE,
@@ -246,6 +255,7 @@ async function main() {
       animalClass: AnimalClass.BARROW,
       status: AnimalStatus.ON_FARM,
       birthOrAcquired: new Date("2025-01-18"),
+      purchasePriceCents: 12000,
       availableForSale: true,
       salePath: SalePath.INSPECTED_RETAIL,
       listedAt: new Date("2026-11-01"),
@@ -625,10 +635,59 @@ async function main() {
     },
   });
 
+  // Cost ledger — hay on north pasture (equal per head) + finishing feed (weight-gain stub equal fallback)
+  const northAnimals = [bull, cow, heifer];
+  const hayTotal = 36000; // $360
+  const hayEach = Math.floor(hayTotal / northAnimals.length);
+  const hayLines = northAnimals.map((a, i) => ({
+    animalId: a.id,
+    amountCents: hayEach + (i < hayTotal - hayEach * northAnimals.length ? 1 : 0),
+    shareRatio: 1 / northAnimals.length,
+  }));
+  await prisma.costEntry.create({
+    data: {
+      farmId: hughes.id,
+      lotId: northLot.id,
+      category: CostCategory.HAY,
+      amountCents: hayTotal,
+      incurredAt: new Date("2026-11-01"),
+      periodStart: new Date("2026-10-01"),
+      periodEnd: new Date("2026-10-31"),
+      description: "Round bales — North Pasture October",
+      allocationMethod: CostAllocationMethod.EQUAL_PER_HEAD,
+      allocations: { create: hayLines },
+    },
+  });
+
+  const finishAnimals = [steer, treatedSteer];
+  const feedTotal = 48000; // $480
+  const feedEach = feedTotal / finishAnimals.length;
+  await prisma.costEntry.create({
+    data: {
+      farmId: hughes.id,
+      lotId: finishLot.id,
+      category: CostCategory.FEED,
+      amountCents: feedTotal,
+      incurredAt: new Date("2026-11-15"),
+      periodStart: new Date("2026-10-01"),
+      periodEnd: new Date("2026-11-15"),
+      description: "Finishing ration — November",
+      allocationMethod: CostAllocationMethod.EQUAL_PER_HEAD,
+      allocations: {
+        create: finishAnimals.map((a) => ({
+          animalId: a.id,
+          amountCents: feedEach,
+          shareRatio: 1 / finishAnimals.length,
+        })),
+      },
+    },
+  });
+
   void hogBarrow;
 
-  console.log("Seeded herd v1.1 demo data. Login: nathan@herd2home.local / pilot1234");
+  console.log("Seeded herd v1.1 + cost demo data. Login: nathan@herd2home.local / pilot1234");
   console.log("Demo animals: C-101 share roster, C-102 booked retail, C-110 in withdrawal, C-90 pregnant, C-201 calf");
+  console.log("Costs: North Pasture hay + finishing feed allocated equal per head");
 }
 
 main()

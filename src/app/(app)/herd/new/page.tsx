@@ -128,6 +128,16 @@ export default async function NewAnimalPage({
             <input id="birthOrAcquired" name="birthOrAcquired" type="date" />
           </div>
           <div className="field">
+            <label htmlFor="purchasePrice">Purchase / acquisition ($)</label>
+            <input
+              id="purchasePrice"
+              name="purchasePrice"
+              type="text"
+              inputMode="decimal"
+              placeholder="Leave blank if born on farm"
+            />
+          </div>
+          <div className="field">
             <label htmlFor="damId">Dam</label>
             <select id="damId" name="damId" defaultValue="">
               <option value="">Unknown</option>

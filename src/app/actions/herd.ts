@@ -27,6 +27,7 @@ import {
   parseOptionalInt,
   sexFromClass,
 } from "@/lib/herd";
+import { dollarsToCents } from "@/lib/costs";
 
 function revalidateAnimal(id: string) {
   revalidatePath("/herd");
@@ -69,6 +70,7 @@ export async function createAnimalAction(formData: FormData) {
   const damId = String(formData.get("damId") ?? "") || null;
   const sireId = String(formData.get("sireId") ?? "") || null;
   const sireName = String(formData.get("sireName") ?? "").trim() || null;
+  const purchasePriceCents = dollarsToCents(String(formData.get("purchasePrice") ?? ""));
 
   if (!tag) {
     redirect("/herd/new?error=tag");
@@ -93,6 +95,7 @@ export async function createAnimalAction(formData: FormData) {
       damId,
       sireId,
       sireName,
+      purchasePriceCents,
       statusHistory: {
         create: { toStatus: status, notes: "Created" },
       },
@@ -123,6 +126,8 @@ export async function updateAnimalAction(formData: FormData) {
   const damId = String(formData.get("damId") ?? "") || null;
   const sireId = String(formData.get("sireId") ?? "") || null;
   const sireName = String(formData.get("sireName") ?? "").trim() || null;
+  const purchaseRaw = String(formData.get("purchasePrice") ?? "").trim();
+  const purchasePriceCents = purchaseRaw === "" ? null : dollarsToCents(purchaseRaw);
 
   await prisma.animal.update({
     where: { id },
@@ -142,6 +147,7 @@ export async function updateAnimalAction(formData: FormData) {
       damId: damId === id ? null : damId,
       sireId: sireId === id ? null : sireId,
       sireName,
+      purchasePriceCents,
     },
   });
 

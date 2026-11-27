@@ -13,6 +13,7 @@ import {
   SPECIES_LABELS,
   STATUS_LABELS,
   STATUS_ORDER,
+  formatMoney,
   statusBadgeClass,
 } from "@/lib/labels";
 import { activeWithdrawal, normalizeStatus } from "@/lib/herd";
@@ -79,7 +80,15 @@ export default async function HerdPage({
 
   const lots = await prisma.lot.findMany({
     where: { farmId: farm.id },
-    include: { _count: { select: { animals: true } } },
+    include: {
+      _count: { select: { animals: true } },
+      animals: {
+        select: {
+          purchasePriceCents: true,
+          costAllocations: { select: { amountCents: true } },
+        },
+      },
+    },
     orderBy: { name: "asc" },
   });
 
@@ -96,6 +105,9 @@ export default async function HerdPage({
       <div className="mb-4 flex flex-wrap gap-3">
         <Link href="/herd/calendar" className="btn btn-ghost">
           Breeding calendar
+        </Link>
+        <Link href="/herd/costs" className="btn btn-ghost">
+          Costs &amp; feed
         </Link>
         {params.moved ? (
           <span className="callout">Lot move saved.</span>
@@ -307,20 +319,37 @@ export default async function HerdPage({
             {lots.length === 0 ? (
               <li className="muted">No lots yet.</li>
             ) : (
-              lots.map((lotRow) => (
-                <li
-                  key={lotRow.id}
-                  className="flex justify-between border-b border-[var(--line)] py-2"
-                >
-                  <Link
-                    href={`/herd?lot=${lotRow.id}`}
-                    className="font-semibold text-[var(--brand)]"
+              lots.map((lotRow) => {
+                const basis = lotRow.animals.reduce(
+                  (s, a) =>
+                    s +
+                    (a.purchasePriceCents ?? 0) +
+                    a.costAllocations.reduce((x, c) => x + c.amountCents, 0),
+                  0,
+                );
+                return (
+                  <li
+                    key={lotRow.id}
+                    className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[var(--line)] py-2"
                   >
-                    {lotRow.name} — {SPECIES_LABELS[lotRow.species]}
-                  </Link>
-                  <span className="muted">({lotRow._count.animals})</span>
-                </li>
-              ))
+                    <div>
+                      <Link
+                        href={`/herd?lot=${lotRow.id}`}
+                        className="font-semibold text-[var(--brand)]"
+                      >
+                        {lotRow.name} — {SPECIES_LABELS[lotRow.species]}
+                      </Link>
+                      <div className="muted text-xs">
+                        Cost basis {formatMoney(basis)} ·{" "}
+                        <Link href={`/herd/costs?lot=${lotRow.id}`} className="text-[var(--brand)]">
+                          costs
+                        </Link>
+                      </div>
+                    </div>
+                    <span className="muted">({lotRow._count.animals})</span>
+                  </li>
+                );
+              })
             )}
           </ul>
         </div>

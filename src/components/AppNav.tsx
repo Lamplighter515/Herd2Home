@@ -6,6 +6,7 @@ const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/herd", label: "Herd" },
   { href: "/herd/calendar", label: "Breeding" },
+  { href: "/herd/costs", label: "Costs" },
   { href: "/processor", label: "Processor" },
   { href: "/freezer", label: "Freezer" },
   { href: "/butchers", label: "Butchers" },
@@ -34,16 +35,26 @@ export function AppNav({
             </div>
           </Link>
           <nav className="hidden flex-wrap items-center gap-4 lg:flex">
-            {LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="nav-link"
-                data-active={pathname.startsWith(link.href) ? "true" : "false"}
-              >
-                {link.label}
-              </Link>
-            ))}
+            {LINKS.map((link) => {
+              const active =
+                link.href === "/herd"
+                  ? pathname === "/herd" ||
+                    (pathname.startsWith("/herd/") &&
+                      !pathname.startsWith("/herd/calendar") &&
+                      !pathname.startsWith("/herd/costs") &&
+                      !pathname.startsWith("/herd/new"))
+                  : pathname === link.href || pathname.startsWith(`${link.href}/`);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="nav-link"
+                  data-active={active ? "true" : "false"}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </nav>
         </div>
 
@@ -75,16 +86,26 @@ export function AppNav({
         </div>
 
         <nav className="flex flex-wrap gap-3 lg:hidden">
-          {LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="nav-link"
-              data-active={pathname.startsWith(link.href) ? "true" : "false"}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {LINKS.map((link) => {
+            const active =
+              link.href === "/herd"
+                ? pathname === "/herd" ||
+                  (pathname.startsWith("/herd/") &&
+                    !pathname.startsWith("/herd/calendar") &&
+                    !pathname.startsWith("/herd/costs") &&
+                    !pathname.startsWith("/herd/new"))
+                : pathname === link.href || pathname.startsWith(`${link.href}/`);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="nav-link"
+                data-active={active ? "true" : "false"}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
       </div>
     </header>

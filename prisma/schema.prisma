@@ -140,6 +140,23 @@ enum PackageStatus {
   SOLD
 }
 
+enum CostCategory {
+  HAY
+  FEED
+  VET
+  HAUL
+  PROCESSING
+  OTHER
+}
+
+/// How a ledger expense is split across animals in scope.
+enum CostAllocationMethod {
+  EQUAL_PER_HEAD
+  ANIMAL_DAYS
+  WEIGHT_GAIN
+  MANUAL
+}
+
 model User {
   id           String           @id @default(cuid())
   email        String           @unique
@@ -174,6 +191,7 @@ model Farm {
   packages         FreezerPackage[]
   orders           BuyerOrder[]
   medicineProducts MedicineProduct[]
+  costEntries      CostEntry[]
 }
 
 model FarmMembership {
@@ -189,14 +207,15 @@ model FarmMembership {
 }
 
 model Lot {
-  id        String   @id @default(cuid())
-  farmId    String
-  name      String
-  species   Species
-  notes     String?
-  farm      Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  animals   Animal[]
-  createdAt DateTime @default(now())
+  id          String      @id @default(cuid())
+  farmId      String
+  name        String
+  species     Species
+  notes       String?
+  farm        Farm        @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  animals     Animal[]
+  costEntries CostEntry[]
+  createdAt   DateTime    @default(now())
 }
 
 model MedicineProduct {
@@ -238,32 +257,74 @@ model Animal {
   publicBlurb      String?
   sharePortion     SharePortion?
   shareSlots       Int?
-  mortalityReason  String?
-  mortalityAt      DateTime?
-  farm             Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  lot              Lot?                 @relation(fields: [lotId], references: [id], onDelete: SetNull)
-  dam              Animal?              @relation("DamOffspring", fields: [damId], references: [id], onDelete: SetNull)
-  offspring        Animal[]             @relation("DamOffspring")
-  sire             Animal?              @relation("SireOffspring", fields: [sireId], references: [id], onDelete: SetNull)
-  siredOffspring   Animal[]             @relation("SireOffspring")
-  jobLinks         ProcessorJobAnimal[]
-  packages         FreezerPackage[]
-  shareRoster      ShareOwner[]
-  statusHistory    AnimalStatusHistory[]
-  weightEvents     WeightEvent[]
-  healthEvents     HealthEvent[]
-  breedingAsFemale BreedingEvent[]      @relation("BreedingFemale")
-  breedingAsSire   BreedingEvent[]      @relation("BreedingSire")
-  pregnancies      Pregnancy[]
-  shareSlotsRoster AnimalShareSlot[]
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
+  mortalityReason    String?
+  mortalityAt        DateTime?
+  /// Optional acquisition / purchase price in cents. Homegrown leave null.
+  purchasePriceCents Int?
+  farm               Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  lot                Lot?                 @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  dam                Animal?              @relation("DamOffspring", fields: [damId], references: [id], onDelete: SetNull)
+  offspring          Animal[]             @relation("DamOffspring")
+  sire               Animal?              @relation("SireOffspring", fields: [sireId], references: [id], onDelete: SetNull)
+  siredOffspring     Animal[]             @relation("SireOffspring")
+  jobLinks           ProcessorJobAnimal[]
+  packages           FreezerPackage[]
+  shareRoster        ShareOwner[]
+  statusHistory      AnimalStatusHistory[]
+  weightEvents       WeightEvent[]
+  healthEvents       HealthEvent[]
+  breedingAsFemale   BreedingEvent[]      @relation("BreedingFemale")
+  breedingAsSire     BreedingEvent[]      @relation("BreedingSire")
+  pregnancies        Pregnancy[]
+  shareSlotsRoster   AnimalShareSlot[]
+  costAllocations    CostAllocation[]
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
 
   @@unique([farmId, tag])
   @@index([farmId, status])
   @@index([farmId, species])
   @@index([farmId, eid])
   @@index([farmId, availableForSale])
+}
+
+/// Farm/lot expense (hay, feed, vet, haul, processing, other) allocated across animals.
+model CostEntry {
+  id               String               @id @default(cuid())
+  farmId           String
+  lotId            String?
+  category         CostCategory
+  amountCents      Int
+  incurredAt       DateTime
+  /// Inclusive period start for animal-days / weight-gain methods (defaults to incurredAt day).
+  periodStart      DateTime?
+  /// Inclusive period end for animal-days / weight-gain methods (defaults to incurredAt day).
+  periodEnd        DateTime?
+  description      String?
+  allocationMethod CostAllocationMethod @default(EQUAL_PER_HEAD)
+  farm             Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  lot              Lot?                 @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  allocations      CostAllocation[]
+  createdAt        DateTime             @default(now())
+
+  @@index([farmId, incurredAt])
+  @@index([lotId])
+  @@index([category])
+}
+
+model CostAllocation {
+  id          String    @id @default(cuid())
+  costEntryId String
+  animalId    String
+  amountCents Int
+  /// Share of the entry as a fraction of 1 (e.g. 0.25 = 25%).
+  shareRatio  Float
+  notes       String?
+  costEntry   CostEntry @relation(fields: [costEntryId], references: [id], onDelete: Cascade)
+  animal      Animal    @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  @@unique([costEntryId, animalId])
+  @@index([animalId])
 }
 
 model AnimalStatusHistory {
