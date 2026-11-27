@@ -5,6 +5,7 @@ import { logoutAction, switchFarmAction } from "@/app/actions/auth";
 const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/herd", label: "Herd" },
+  { href: "/herd/calendar", label: "Breeding" },
   { href: "/processor", label: "Processor" },
   { href: "/freezer", label: "Freezer" },
   { href: "/butchers", label: "Butchers" },
