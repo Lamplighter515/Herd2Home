@@ -20,6 +20,8 @@ import {
   BREEDING_METHOD_LABELS,
   CLASS_LABELS,
   CLASSES_BY_SPECIES,
+  COST_ALLOCATION_METHOD_LABELS,
+  COST_CATEGORY_LABELS,
   HEALTH_TYPE_LABELS,
   PREGNANCY_STATUS_LABELS,
   SALE_BLOCK_LABELS,
@@ -32,6 +34,7 @@ import {
   WEIGHT_SOURCE_LABELS,
   WEIGHT_TYPE_LABELS,
   formatDate,
+  formatMoney,
   statusBadgeClass,
 } from "@/lib/labels";
 import {
@@ -39,10 +42,12 @@ import {
   canProcessOrSell,
   normalizeStatus,
 } from "@/lib/herd";
+import { centsToDollarInput } from "@/lib/costs";
 
 const TABS = [
   { id: "timeline", label: "Timeline" },
   { id: "edit", label: "Edit" },
+  { id: "costs", label: "Costs" },
   { id: "weights", label: "Weights" },
   { id: "health", label: "Health" },
   { id: "breeding", label: "Breeding" },
@@ -85,9 +90,30 @@ export default async function AnimalDetailPage({
           job: { include: { butcher: true, cutSheet: true } },
         },
       },
+      costAllocations: {
+        include: {
+          costEntry: {
+            include: { lot: { select: { name: true } } },
+          },
+        },
+        orderBy: { costEntry: { incurredAt: "desc" } },
+      },
     },
   });
   if (!animal) notFound();
+
+  const allocatedCents = animal.costAllocations.reduce((s, a) => s + a.amountCents, 0);
+  const purchaseCents = animal.purchasePriceCents ?? 0;
+  const costBasisCents = purchaseCents + allocatedCents;
+  const hangingWeight = animal.weightEvents.find((w) => w.type === "HANGING")?.weightLb;
+  const lastLiveWeight = animal.weightEvents.find(
+    (w) => w.type !== "HANGING",
+  )?.weightLb;
+  const weightForStub = hangingWeight ?? lastLiveWeight;
+  const perLbStub =
+    weightForStub && weightForStub > 0
+      ? costBasisCents / weightForStub
+      : null;
 
   const lots = await prisma.lot.findMany({
     where: { farmId: farm.id },
@@ -344,6 +370,17 @@ export default async function AnimalDetailPage({
               />
             </div>
             <div className="field">
+              <label htmlFor="purchasePrice">Purchase / acquisition ($)</label>
+              <input
+                id="purchasePrice"
+                name="purchasePrice"
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00"
+                defaultValue={centsToDollarInput(animal.purchasePriceCents)}
+              />
+            </div>
+            <div className="field">
               <label htmlFor="damId">Dam</label>
               <select id="damId" name="damId" defaultValue={animal.damId ?? ""}>
                 <option value="">Unknown</option>
@@ -391,6 +428,79 @@ export default async function AnimalDetailPage({
               Delete animal
             </button>
           </form>
+        </div>
+      ) : null}
+
+      {tab === "costs" ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="card p-5">
+            <h2 className="text-xl">Cost basis</h2>
+            <dl className="mt-4 space-y-2 text-sm">
+              <div className="flex justify-between gap-4 border-b border-[var(--line)] py-2">
+                <dt className="muted">Purchase / acquisition</dt>
+                <dd className="font-semibold">
+                  {animal.purchasePriceCents != null
+                    ? formatMoney(animal.purchasePriceCents)
+                    : "—"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4 border-b border-[var(--line)] py-2">
+                <dt className="muted">Allocated expenses</dt>
+                <dd className="font-semibold">{formatMoney(allocatedCents)}</dd>
+              </div>
+              <div className="flex justify-between gap-4 py-2">
+                <dt className="font-semibold">Total basis</dt>
+                <dd className="text-lg font-semibold">{formatMoney(costBasisCents)}</dd>
+              </div>
+            </dl>
+            <p className="muted mt-3 text-xs">
+              $/lb &amp; margin — stub only. With{" "}
+              {hangingWeight
+                ? `hanging weight ${hangingWeight} lb`
+                : lastLiveWeight
+                  ? `last live weight ${lastLiveWeight} lb`
+                  : "no weight yet"}
+              {perLbStub != null
+                ? `: ~${formatMoney(Math.round(perLbStub))}/lb basis. Full margin vs sale lands with freezer/checkout rollup.`
+                : ". Add hanging or live weight to preview $/lb."}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link href={`/herd/${animal.id}?tab=edit`} className="btn btn-ghost">
+                Edit purchase price
+              </Link>
+              <Link href="/herd/costs" className="btn">
+                Record farm expense
+              </Link>
+            </div>
+          </div>
+          <div className="card p-5">
+            <h2 className="text-xl">Allocated expenses</h2>
+            {animal.costAllocations.length === 0 ? (
+              <p className="muted mt-3 text-sm">No allocated hay/feed or other costs yet.</p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {animal.costAllocations.map((a) => (
+                  <li
+                    key={a.id}
+                    className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[var(--line)] py-2 text-sm"
+                  >
+                    <div>
+                      <div className="font-semibold">
+                        {COST_CATEGORY_LABELS[a.costEntry.category]} ·{" "}
+                        {formatDate(a.costEntry.incurredAt)}
+                      </div>
+                      <div className="muted text-xs">
+                        {COST_ALLOCATION_METHOD_LABELS[a.costEntry.allocationMethod]}
+                        {a.costEntry.lot?.name ? ` · ${a.costEntry.lot.name}` : ""}
+                        {a.costEntry.description ? ` — ${a.costEntry.description}` : ""}
+                      </div>
+                    </div>
+                    <div className="font-semibold">{formatMoney(a.amountCents)}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       ) : null}
 

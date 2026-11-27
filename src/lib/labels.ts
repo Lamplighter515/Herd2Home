@@ -4,6 +4,8 @@ import type {
   AnimalStatus,
   BreedingMethod,
   CheckoutMode,
+  CostAllocationMethod,
+  CostCategory,
   HealthEventType,
   PackageStatus,
   PickupType,
@@ -145,6 +147,31 @@ export const PACKAGE_STATUS_LABELS: Record<PackageStatus, string> = {
   AVAILABLE: "Available",
   RESERVED: "Reserved",
   SOLD: "Sold",
+};
+
+export const COST_CATEGORY_LABELS: Record<CostCategory, string> = {
+  HAY: "Hay",
+  FEED: "Feed",
+  VET: "Vet",
+  HAUL: "Haul",
+  PROCESSING: "Processing",
+  OTHER: "Other",
+};
+
+export const COST_ALLOCATION_METHOD_LABELS: Record<CostAllocationMethod, string> = {
+  EQUAL_PER_HEAD: "Equal per head",
+  ANIMAL_DAYS: "Animal-days",
+  WEIGHT_GAIN: "Weight gain",
+  MANUAL: "Manual",
+};
+
+export const COST_ALLOCATION_METHOD_HELP: Record<CostAllocationMethod, string> = {
+  EQUAL_PER_HEAD: "Split the bill evenly across every animal in scope (default).",
+  ANIMAL_DAYS:
+    "Weight by days each animal was on the farm during the expense period (acquired → exit).",
+  WEIGHT_GAIN:
+    "Weight by lb gained in the period (needs at least two weights per animal). Falls back to equal if no gains.",
+  MANUAL: "Enter a dollar amount per selected animal; amounts should cover the bill.",
 };
 
 export const SALE_BLOCK_LABELS: Record<string, string> = {
