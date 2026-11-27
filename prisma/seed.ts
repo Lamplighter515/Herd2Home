@@ -1,4 +1,12 @@
-import { PrismaClient, Species, AnimalStatus, CheckoutMode, PickupType, OrderStatus, PackageStatus } from "@prisma/client";
+import {
+  PrismaClient,
+  Species,
+  AnimalStatus,
+  CheckoutMode,
+  PickupType,
+  OrderStatus,
+  PackageStatus,
+} from "@prisma/client";
 import { hashSync } from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -33,25 +41,37 @@ async function main() {
     prisma.farm.create({
       data: {
         name: "Hughes Family Farm",
+        slug: "hughes-family-farm",
         city: "Lebanon",
         county: "Boone",
         state: "IN",
+        tagline: "Grass-finished cattle & pasture hogs from Boone County",
+        about:
+          "Three generations on the same ground outside Lebanon. We finish animals on pasture and sell inspected cuts for farm or locker pickup — plus custom-exempt live shares when a steer is ready.",
       },
     }),
     prisma.farm.create({
       data: {
         name: "Sugar Creek Livestock",
+        slug: "sugar-creek-livestock",
         city: "Crawfordsville",
         county: "Montgomery",
         state: "IN",
+        tagline: "Sheep & goats raised along Sugar Creek",
+        about:
+          "Small mixed flock in Montgomery County. Inspected lamb packages when freezer stock lands; live share bookings for custom processing.",
       },
     }),
     prisma.farm.create({
       data: {
         name: "White River Pastures",
+        slug: "white-river-pastures",
         city: "Martinsville",
         county: "Morgan",
         state: "IN",
+        tagline: "Pasture poultry near the White River",
+        about:
+          "Seasonal broiler batches for local families. Whole birds and parts sold as inspected retail for on-farm pickup.",
       },
     }),
   ]);
@@ -81,7 +101,9 @@ async function main() {
         sex: "steer",
         status: AnimalStatus.PASTURE,
         birthOrAcquired: new Date("2024-03-12"),
-        notes: "Grass-finished pilot animal",
+        notes: "Grass-finished pilot animal — open for custom-exempt live share",
+        listedForShare: true,
+        sharePriceCents: 280000,
       },
     }),
     prisma.animal.create({
@@ -105,6 +127,9 @@ async function main() {
         sex: "barrow",
         status: AnimalStatus.PASTURE,
         birthOrAcquired: new Date("2025-01-18"),
+        listedForShare: true,
+        sharePriceCents: 65000,
+        notes: "Finishing hog — half or whole custom-exempt share",
       },
     }),
     prisma.animal.create({
@@ -121,17 +146,20 @@ async function main() {
     }),
   ]);
 
-  await prisma.lot.create({
+  const sheepLot = await prisma.lot.create({
     data: { farmId: sugar.id, name: "Creek Bottom Sheep", species: Species.SHEEP },
   });
-  await prisma.animal.create({
+  const sugarSheep = await prisma.animal.create({
     data: {
       farmId: sugar.id,
+      lotId: sheepLot.id,
       tag: "S-12",
       species: Species.SHEEP,
       sex: "ewe",
       status: AnimalStatus.PASTURE,
       notes: "Starter ewe for Sugar Creek",
+      listedForShare: true,
+      sharePriceCents: 42000,
     },
   });
   await prisma.animal.create({
@@ -143,18 +171,29 @@ async function main() {
       status: AnimalStatus.PASTURE,
     },
   });
+  const sugarFreezer = await prisma.animal.create({
+    data: {
+      farmId: sugar.id,
+      lotId: sheepLot.id,
+      tag: "S-08",
+      species: Species.SHEEP,
+      sex: "wether",
+      status: AnimalStatus.IN_FREEZER,
+      notes: "Inspected lamb packages available",
+    },
+  });
 
   await prisma.lot.create({
     data: { farmId: white.id, name: "Pasture Broilers", species: Species.POULTRY },
   });
-  await prisma.animal.create({
+  const broiler = await prisma.animal.create({
     data: {
       farmId: white.id,
       tag: "P-batch-01",
       species: Species.POULTRY,
       sex: "mixed",
-      status: AnimalStatus.PASTURE,
-      notes: "100-bird PPIA-exempt batch placeholder",
+      status: AnimalStatus.IN_FREEZER,
+      notes: "Processed broiler batch — retail birds in freezer",
     },
   });
 
@@ -177,7 +216,7 @@ async function main() {
     },
   });
 
-  await prisma.butcher.create({
+  const sugarButcher = await prisma.butcher.create({
     data: {
       farmId: sugar.id,
       name: "Sugar Creek Meat Co.",
@@ -217,14 +256,17 @@ async function main() {
   });
 
   void job;
+  void sugarSheep;
 
+  // Already reserved packages (linked to demo order)
   const pkgGround = await prisma.freezerPackage.create({
     data: {
       farmId: hughes.id,
       animalId: animals[3].id,
       cutName: "Ground pork",
       weightLbs: 12.4,
-      status: PackageStatus.AVAILABLE,
+      priceCents: 8680,
+      status: PackageStatus.RESERVED,
       inspectionPath: CheckoutMode.INSPECTED_RETAIL,
     },
   });
@@ -234,9 +276,106 @@ async function main() {
       animalId: animals[3].id,
       cutName: "Pork chops",
       weightLbs: 8.2,
-      status: PackageStatus.AVAILABLE,
+      priceCents: 9020,
+      status: PackageStatus.RESERVED,
       inspectionPath: CheckoutMode.INSPECTED_RETAIL,
     },
+  });
+
+  // Available retail inventory for public shop
+  await prisma.freezerPackage.createMany({
+    data: [
+      {
+        farmId: hughes.id,
+        animalId: animals[3].id,
+        cutName: "Ground pork",
+        weightLbs: 5.0,
+        priceCents: 3500,
+        status: PackageStatus.AVAILABLE,
+        inspectionPath: CheckoutMode.INSPECTED_RETAIL,
+      },
+      {
+        farmId: hughes.id,
+        animalId: animals[3].id,
+        cutName: "Pork shoulder roast",
+        weightLbs: 4.6,
+        priceCents: 4140,
+        status: PackageStatus.AVAILABLE,
+        inspectionPath: CheckoutMode.INSPECTED_RETAIL,
+      },
+      {
+        farmId: hughes.id,
+        animalId: animals[3].id,
+        cutName: "Breakfast sausage links",
+        weightLbs: 3.2,
+        priceCents: 2880,
+        status: PackageStatus.AVAILABLE,
+        inspectionPath: CheckoutMode.INSPECTED_RETAIL,
+      },
+      {
+        farmId: hughes.id,
+        animalId: animals[3].id,
+        cutName: "Spare ribs",
+        weightLbs: 2.8,
+        priceCents: 3360,
+        status: PackageStatus.AVAILABLE,
+        inspectionPath: CheckoutMode.INSPECTED_RETAIL,
+      },
+      {
+        farmId: sugar.id,
+        animalId: sugarFreezer.id,
+        cutName: "Lamb loin chops",
+        weightLbs: 2.4,
+        priceCents: 4320,
+        status: PackageStatus.AVAILABLE,
+        inspectionPath: CheckoutMode.INSPECTED_RETAIL,
+      },
+      {
+        farmId: sugar.id,
+        animalId: sugarFreezer.id,
+        cutName: "Ground lamb",
+        weightLbs: 4.0,
+        priceCents: 4800,
+        status: PackageStatus.AVAILABLE,
+        inspectionPath: CheckoutMode.INSPECTED_RETAIL,
+      },
+      {
+        farmId: sugar.id,
+        animalId: sugarFreezer.id,
+        cutName: "Leg of lamb roast",
+        weightLbs: 5.5,
+        priceCents: 8250,
+        status: PackageStatus.AVAILABLE,
+        inspectionPath: CheckoutMode.INSPECTED_RETAIL,
+      },
+      {
+        farmId: white.id,
+        animalId: broiler.id,
+        cutName: "Whole broiler",
+        weightLbs: 4.2,
+        priceCents: 2520,
+        status: PackageStatus.AVAILABLE,
+        inspectionPath: CheckoutMode.INSPECTED_RETAIL,
+      },
+      {
+        farmId: white.id,
+        animalId: broiler.id,
+        cutName: "Chicken thighs (pack)",
+        weightLbs: 2.0,
+        priceCents: 1400,
+        status: PackageStatus.AVAILABLE,
+        inspectionPath: CheckoutMode.INSPECTED_RETAIL,
+      },
+      {
+        farmId: white.id,
+        animalId: broiler.id,
+        cutName: "Chicken breasts (pack)",
+        weightLbs: 1.8,
+        priceCents: 1620,
+        status: PackageStatus.AVAILABLE,
+        inspectionPath: CheckoutMode.INSPECTED_RETAIL,
+      },
+    ],
   });
 
   await prisma.buyerOrder.create({
@@ -269,17 +408,20 @@ async function main() {
       pickupType: PickupType.BUTCHER,
       status: OrderStatus.DRAFT,
       stripePaymentIntentId: null,
-      notes: "Custom-exempt live share — owner roster before slaughter",
+      notes: "Custom-exempt live share — owner roster before slaughter (demo draft)",
       shareOwners: {
         create: [
-          { animalId: animals[0].id, name: "Alex Miller", sharePct: 50 },
-          { animalId: animals[0].id, name: "Sam Miller", sharePct: 50 },
+          { animalId: animals[0].id, name: "Alex Miller", sharePct: 25 },
+          { animalId: animals[0].id, name: "Sam Miller", sharePct: 25 },
         ],
       },
     },
   });
 
+  void sugarButcher;
+
   console.log("Seeded 3 Indiana pilot farms. Login: nathan@herd2home.local / pilot1234");
+  console.log("Public shop: /shop · Farm example: /shop/hughes-family-farm");
 }
 
 main()

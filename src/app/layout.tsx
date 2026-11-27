@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Source_Sans_3, Source_Serif_4 } from "next/font/google";
+import { Fraunces, Manrope, Source_Sans_3, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 
 const sourceSans = Source_Sans_3({
@@ -9,6 +9,16 @@ const sourceSans = Source_Sans_3({
 
 const sourceSerif = Source_Serif_4({
   variable: "--font-source-serif",
+  subsets: ["latin"],
+});
+
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+});
+
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
 });
 
@@ -33,7 +43,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${sourceSans.variable} ${sourceSerif.variable} h-full antialiased`}
+      className={`${sourceSans.variable} ${sourceSerif.variable} ${fraunces.variable} ${manrope.variable} h-full antialiased`}
     >
       <body className="min-h-full">{children}</body>
     </html>

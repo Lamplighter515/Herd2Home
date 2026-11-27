@@ -54,6 +54,11 @@ export default async function LoginPage({
         <p className="muted mt-5 text-center text-sm">
           Seed login: nathan@herd2home.local / pilot1234
         </p>
+        <p className="mt-3 text-center text-sm">
+          <a href="/shop" className="font-semibold text-[var(--brand)]">
+            ← Public buyer shop
+          </a>
+        </p>
       </div>
     </div>
   );

@@ -66,6 +66,9 @@ export function AppNav({
           <div className="text-sm text-[var(--muted)]">
             <span className="font-semibold text-[var(--ink)]">{user.name}</span>
           </div>
+          <Link href={`/shop/${farm.slug}`} className="text-sm font-semibold text-[var(--brand)]">
+            Public shop
+          </Link>
           <form action={logoutAction}>
             <button type="submit" className="text-sm font-semibold text-[var(--brand)]">
               Log out
